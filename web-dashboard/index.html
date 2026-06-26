@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkPulse</title>
+<style>
+  :root {
+    --teal:#0f766e; --teal-dark:#0d5d56; --bg:#f4f6f5; --card:#fff; --border:#e2e5e4;
+    --text:#1f2937; --muted:#6b7280; --danger-bg:#fde8e8; --danger-text:#b91c1c; --green:#15803d;
+    --sidebar-w:240px;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  .hidden { display:none !important; }
+
+  /* ---- Auth screen ---- */
+  .wrap { max-width:480px; margin:60px auto; padding:0 20px; }
+  .logo { width:48px; height:48px; background:var(--teal); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:22px; margin-bottom:20px; }
+  h1 { font-size:28px; margin:0 0 4px; }
+  .subtitle { color:var(--muted); margin-bottom:24px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:28px; }
+  label { display:block; font-size:14px; font-weight:600; margin:16px 0 6px; }
+  input, select { width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--border); font-size:15px; background:#fff; }
+  input:focus, select:focus { outline:none; border-color:var(--teal); }
+  .role-toggle { display:flex; gap:10px; margin-top:16px; }
+  .role-btn { flex:1; padding:12px; text-align:center; border:1px solid var(--border); border-radius:10px; cursor:pointer; font-weight:600; color:var(--muted); }
+  .role-btn.active { border-color:var(--teal); background:#f0fdfa; color:var(--teal-dark); }
+  button.primary { width:100%; margin-top:24px; padding:14px; border:none; border-radius:10px; background:var(--teal); color:#fff; font-size:16px; font-weight:600; cursor:pointer; }
+  button.primary:hover { background:var(--teal-dark); }
+  .switch { text-align:center; margin-top:20px; color:var(--muted); font-size:14px; }
+  .switch a { color:var(--teal); font-weight:600; cursor:pointer; text-decoration:none; }
+  .error { background:var(--danger-bg); color:var(--danger-text); padding:12px 14px; border-radius:10px; margin-bottom:16px; font-size:14px; display:none; }
+  .hint { font-size:12px; color:var(--muted); margin-top:28px; line-height:1.5; }
+
+  /* ---- App shell ---- */
+  .app { display:none; min-height:100vh; }
+  .app.shown { display:flex; }
+  .sidebar { width:var(--sidebar-w); background:var(--card); border-right:1px solid var(--border); flex-shrink:0; padding:24px 0; }
+  .sidebar-header { display:flex; align-items:center; gap:10px; padding:0 24px 24px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+  .sidebar-header .logo { width:34px; height:34px; font-size:16px; margin:0; }
+  .sidebar-header .titles div:first-child { font-weight:700; font-size:16px; }
+  .sidebar-header .titles div:last-child { font-size:12px; color:var(--muted); }
+  .nav-item { padding:12px 24px; cursor:pointer; color:var(--muted); font-weight:500; font-size:15px; }
+  .nav-item:hover { background:#f8fafa; }
+  .nav-item.active { background:#f0fdfa; color:var(--teal-dark); font-weight:700; border-right:3px solid var(--teal); }
+  .main { flex:1; display:flex; flex-direction:column; }
+  .topbar { display:flex; justify-content:flex-end; align-items:center; gap:16px; padding:16px 32px; background:var(--card); border-bottom:1px solid var(--border); }
+  .topbar .user-label { color:var(--muted); font-size:14px; }
+  .topbar button { background:none; border:1px solid var(--border); padding:8px 16px; border-radius:8px; cursor:pointer; color:var(--muted); font-weight:600; }
+  .content { padding:32px; max-width:1100px; }
+  .page-title { font-size:26px; font-weight:700; margin:0 0 4px; }
+  .page-sub { color:var(--muted); margin-bottom:24px; }
+
+  /* ---- Stat cards ---- */
+  .stat-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; margin-bottom:28px; }
+  .stat-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:22px 24px; }
+  .stat-card .label { color:var(--muted); font-size:14px; margin-bottom:10px; }
+  .stat-card .value { font-size:32px; font-weight:700; }
+
+  /* ---- Tables ---- */
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:14px; overflow:hidden; border:1px solid var(--border); }
+  th, td { text-align:left; padding:14px 18px; border-bottom:1px solid var(--border); font-size:14px; }
+  th { color:var(--muted); font-weight:600; background:#fafafa; }
+  tr:last-child td { border-bottom:none; }
+  .badge { padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+  .badge.active { background:#dcfce7; color:var(--green); }
+  .badge.paused { background:#fef3c7; color:#92400e; }
+  .badge.offline { background:#f3f4f6; color:var(--muted); }
+  .empty-row td { color:var(--muted); text-align:center; padding:32px; }
+  .day-row { cursor:pointer; }
+  .day-row:hover { background:#fafafa; }
+  .day-row .expand-arrow { display:inline-block; transition:transform .15s ease; margin-right:8px; color:var(--muted); }
+  .day-row.expanded .expand-arrow { transform:rotate(90deg); }
+  .day-detail-row td { background:#fafafa; padding:0; border-bottom:1px solid var(--border); }
+  .day-detail-row table { border:none; border-radius:0; box-shadow:none; }
+  .day-detail-row th { background:#f4f6f5; font-size:12px; }
+  .day-detail-row td { font-size:13px; padding:10px 18px; background:#fff; }
+  .section-title { font-size:18px; font-weight:700; margin:28px 0 12px; }
+  .link-btn { color:var(--teal); cursor:pointer; font-weight:600; font-size:13px; }
+
+  /* ---- Screenshot gallery ---- */
+  .filter-row { display:flex; gap:10px; margin-bottom:18px; align-items:center; }
+  .filter-row select { width:auto; }
+  .thumbs { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:16px; }
+  .thumb { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; cursor:pointer; }
+  .thumb img { width:100%; height:110px; object-fit:cover; display:block; background:#f3f4f6; }
+  .thumb .meta { padding:8px 10px; font-size:12px; color:var(--muted); }
+  .thumb .meta .who { font-weight:600; color:var(--text); display:block; margin-bottom:2px; }
+
+  /* ---- Screenshot lightbox (full-size view) ---- */
+  .lightbox { display:none; position:fixed; inset:0; background:rgba(15,23,22,0.85); z-index:1000; align-items:center; justify-content:center; padding:40px; }
+  .lightbox.shown { display:flex; }
+  .lightbox img { max-width:100%; max-height:100%; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,0.4); }
+  .lightbox-close { position:absolute; top:20px; right:28px; color:#fff; font-size:32px; cursor:pointer; line-height:1; background:none; border:none; }
+  .lightbox-caption { position:absolute; bottom:24px; left:0; right:0; text-align:center; color:#f4f6f5; font-size:14px; }
+
+  /* ---- Modal cards (project prompt, confirm delete) ---- */
+  .modal-card { background:var(--card); border-radius:14px; padding:28px; width:380px; max-width:90vw; box-shadow:0 10px 40px rgba(0,0,0,0.3); }
+  .modal-card h3 { margin:0 0 8px; font-size:18px; }
+  .modal-sub { color:var(--muted); font-size:14px; margin:0 0 18px; }
+  .modal-card input[type="text"] { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:15px; margin-bottom:18px; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:10px; }
+  .btn-primary, .btn-secondary, .btn-danger { padding:9px 16px; border-radius:8px; border:none; font-size:14px; font-weight:600; cursor:pointer; }
+  .btn-primary { background:var(--green); color:#fff; }
+  .btn-secondary { background:#f1f3f2; color:var(--text); }
+  .btn-danger { background:#dc2626; color:#fff; }
+  .btn-danger:hover { background:#b91c1c; }
+  .delete-link { color:#dc2626; font-size:12px; cursor:pointer; background:none; border:none; padding:0; text-decoration:underline; }
+  .delete-link:hover { color:#991b1b; }
+
+  /* ---- Circular activity ring (owner's Team Status table) ---- */
+  .activity-ring-wrap { display:flex; align-items:center; gap:10px; }
+  .activity-ring-label { font-size:12px; color:var(--muted); line-height:1.3; }
+  .activity-ring-label strong { color:var(--text); display:block; font-size:13px; }
+
+  /* ---- Employee dashboard ---- */
+  .status-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:32px; text-align:center; margin-bottom:24px; }
+  .status-dot { width:12px; height:12px; border-radius:50%; display:inline-block; margin-right:8px; }
+  .status-dot.active { background:var(--green); }
+  .status-dot.offline { background:#9ca3af; }
+  .big-btn { margin:8px; padding:14px 32px; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; color:#fff; }
+  .big-btn.checkin { background:var(--green); }
+  .big-btn.checkout { background:#b91c1c; }
+  .notice { background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:12px 16px; border-radius:10px; font-size:14px; margin-top:16px; text-align:left; }
+
+  /* ---- Activity bar (active vs idle time) ---- */
+  .activity-wrap { margin-top:18px; }
+  .activity-label { display:flex; justify-content:space-between; font-size:13px; color:var(--muted); margin-bottom:6px; }
+  .activity-bar { height:10px; border-radius:6px; background:#fef3c7; overflow:hidden; display:flex; }
+  .activity-bar .active-fill { background:var(--green); height:100%; transition:width .3s ease; }
+  .activity-bar.small { height:6px; width:120px; }
+  .idle-warning { color:#b91c1c; font-weight:600; }
+  .activity-mini { display:flex; align-items:center; gap:8px; }
+  .activity-mini .pct { font-size:12px; color:var(--muted); min-width:32px; }
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div id="auth-screen" class="wrap">
+  <div class="logo">W</div>
+  <h1 id="auth-title">Welcome back</h1>
+  <div class="subtitle" id="auth-subtitle">Sign in to WorkPulse</div>
+  <div class="card">
+    <div class="error" id="auth-error"></div>
+    <div id="signup-only">
+      <label>Full name</label>
+      <input id="name" placeholder="Your name">
+    </div>
+    <label>Email</label>
+    <input id="email" type="email" placeholder="you@company.com">
+    <label>Password</label>
+    <input id="password" type="password" placeholder="••••••••">
+    <div id="signup-extra" class="hidden">
+      <label>I am signing up as</label>
+      <div class="role-toggle">
+        <div class="role-btn active" id="role-owner">Owner</div>
+        <div class="role-btn" id="role-employee">Employee</div>
+      </div>
+      <div id="designation-field" class="hidden">
+        <label>Designation (optional)</label>
+        <input id="designation" placeholder="e.g. Associate Developer">
+      </div>
+    </div>
+    <button class="primary" id="submit-btn">Sign in</button>
+    <div class="switch" id="switch-line">No account yet? <a id="switch-link">Create one</a></div>
+    <div class="hint">
+      Owners and employees both sign in here. Time tracking and screenshots only run
+      while an employee is checked in, with a visible browser sharing indicator the
+      whole time — never silently in the background.
+    </div>
+  </div>
+</div>
+
+<!-- ============ EMPLOYEE APP ============ -->
+<div id="employee-app" class="app">
+  <div class="main" style="width:100%;">
+    <div class="topbar">
+      <span class="user-label" id="emp-name-label"></span>
+      <button onclick="logout()">Sign out</button>
+    </div>
+    <div class="content" style="margin:0 auto;">
+      <div class="status-card">
+        <div><span class="status-dot offline" id="emp-status-dot"></span><span id="emp-status-text" style="font-weight:600;">Not checked in</span></div>
+        <div id="emp-since" style="color:var(--muted);font-size:14px;margin-top:6px;"></div>
+        <div>
+          <button class="big-btn checkin" id="checkin-btn" onclick="doCheckIn()">Check In</button>
+          <button class="big-btn checkout hidden" id="checkout-btn" onclick="doCheckOut()">Check Out</button>
+        </div>
+        <div class="activity-wrap hidden" id="emp-activity-section">
+          <div class="activity-label">
+            <span id="emp-activity-text">Active 0:00 · Idle 0:00</span>
+            <span id="emp-activity-pct">100% active</span>
+          </div>
+          <div class="activity-bar"><div class="active-fill" id="emp-activity-fill" style="width:100%;"></div></div>
+        </div>
+        <div class="notice">
+          🟢 When you check in, your browser asks you to pick a screen/window to share.
+          While active, your browser shows a permanent sharing indicator that can't be
+          hidden — that's your sign capture is on. A screenshot uploads automatically
+          every few minutes until you check out or stop sharing.
+          <br><br>
+          ⏸️ If your mouse and keyboard are both idle for 5 minutes, your timer pauses
+          automatically and starts counting as idle time, until you move your mouse or
+          type again.
+        </div>
+      </div>
+      <div class="section-title">Your recent days</div>
+      <table><thead><tr><th>Date</th><th>Times checked in</th><th>Active</th><th>Idle</th><th></th></tr></thead><tbody id="history-body"></tbody></table>
+      <div class="section-title">Your shared screenshots</div>
+      <div class="thumbs" id="my-screenshots"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ OWNER APP ============ -->
+<div id="owner-app" class="app">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">W</div>
+      <div class="titles"><div>WorkPulse</div><div>Owner dashboard</div></div>
+    </div>
+    <div class="nav-item active" data-page="overview" onclick="switchPage('overview')">Overview</div>
+    <div class="nav-item" data-page="employees" onclick="switchPage('employees')">Employees</div>
+    <div class="nav-item" data-page="screenshots" onclick="switchPage('screenshots')">All screenshots</div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <span class="user-label" id="owner-name-label"></span>
+      <button onclick="logout()">Sign out</button>
+    </div>
+    <div class="content">
+
+      <!-- Overview page -->
+      <div id="page-overview">
+        <div class="page-title">Overview</div>
+        <div class="page-sub">Live snapshot of your team right now</div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="label">Active now</div><div class="value" id="stat-active">0</div></div>
+          <div class="stat-card"><div class="label">Total employees</div><div class="value" id="stat-total">0</div></div>
+          <div class="stat-card"><div class="label">Screenshots today</div><div class="value" id="stat-shots">0</div></div>
+        </div>
+        <div class="section-title" style="margin-top:0;">Team status</div>
+        <table><thead><tr><th>Employee</th><th>Status</th><th>Project</th><th>Checked in</th><th>Activity</th></tr></thead><tbody id="overview-body"></tbody></table>
+      </div>
+
+      <!-- Employees page -->
+      <div id="page-employees" class="hidden">
+        <div class="page-title">Employees</div>
+        <div class="page-sub">Everyone who has joined your team</div>
+        <table><thead><tr><th>Name</th><th>Email</th><th>Designation</th><th>Status</th><th></th></tr></thead><tbody id="employees-body"></tbody></table>
+      </div>
+
+      <!-- Screenshots page -->
+      <div id="page-screenshots" class="hidden">
+        <div class="page-title">All screenshots</div>
+        <div class="page-sub">Shared automatically while each employee is checked in</div>
+        <div class="filter-row">
+          <label style="margin:0;">Employee:</label>
+          <select id="screenshot-employee-filter" onchange="loadAllScreenshots()"></select>
+        </div>
+        <div class="thumbs" id="all-screenshots"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============ PROJECT NAME MODAL (shown before check-in) ============ -->
+<div id="project-modal" class="lightbox" onclick="if(event.target===this) closeProjectModal()">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <h3>What are you working on?</h3>
+    <p class="modal-sub">This shows up on your owner's dashboard while you're checked in.</p>
+    <input type="text" id="project-input" placeholder="e.g. Website Redesign" maxlength="80" autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeProjectModal()">Cancel</button>
+      <button class="btn-primary" onclick="confirmProjectAndCheckIn()">Continue to Check In</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CONFIRM DELETE MODAL ============ -->
+<div id="confirm-modal" class="lightbox" onclick="if(event.target===this) closeConfirmModal()">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <h3 id="confirm-title">Are you sure?</h3>
+    <p class="modal-sub" id="confirm-body"></p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+      <button class="btn-danger" id="confirm-action-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ EMPLOYEE SESSION HISTORY MODAL ============ -->
+<div id="history-modal" class="lightbox" onclick="if(event.target===this) closeHistoryModal()">
+  <div class="modal-card" style="width:640px;" onclick="event.stopPropagation()">
+    <h3 id="history-modal-title">Session history</h3>
+    <p class="modal-sub">Click a day to see individual check-ins.</p>
+    <div style="max-height:50vh; overflow-y:auto; margin-bottom:18px;">
+      <table>
+        <thead><tr><th>Date</th><th>Times checked in</th><th>Active</th><th>Idle</th><th></th></tr></thead>
+        <tbody id="history-modal-body"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeHistoryModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SCREENSHOT LIGHTBOX ============ -->
+<div id="lightbox" class="lightbox" onclick="if(event.target===this) closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <img id="lightbox-img" src="" alt="Full size screenshot">
+  <div class="lightbox-caption" id="lightbox-caption"></div>
+</div>
+
+<script>
+// Auto-detect the backend address from whatever host the dashboard was loaded from,
+// so this works whether you open it via localhost or a LAN IP — just keep the port.
+const API = `${location.protocol}//${location.hostname}:4000`;
+let mode = "login", selectedRole = "owner";
+const el = id => document.getElementById(id);
+
+function showError(msg){ const e=el("auth-error"); e.textContent=msg; e.style.display="block"; }
+function hideError(){ el("auth-error").style.display="none"; }
+
+function render(){
+  hideError();
+  if (mode==="login"){
+    el("auth-title").textContent="Welcome back"; el("auth-subtitle").textContent="Sign in to WorkPulse";
+    el("signup-only").classList.add("hidden"); el("signup-extra").classList.add("hidden");
+    el("submit-btn").textContent="Sign in";
+    el("switch-line").innerHTML='No account yet? <a id="switch-link">Create one</a>';
+  } else {
+    el("auth-title").textContent="Create an account"; el("auth-subtitle").textContent="Set up owner or employee access";
+    el("signup-only").classList.remove("hidden"); el("signup-extra").classList.remove("hidden");
+    el("submit-btn").textContent="Create account";
+    el("switch-line").innerHTML='Already have an account? <a id="switch-link">Sign in</a>';
+  }
+  el("switch-link").onclick=()=>{ mode = mode==="login"?"signup":"login"; render(); };
+}
+el("switch-link").onclick=()=>{ mode = mode==="login"?"signup":"login"; render(); };
+
+el("role-owner").onclick=()=>setRole("owner");
+el("role-employee").onclick=()=>setRole("employee");
+function setRole(role){
+  selectedRole=role;
+  el("role-owner").classList.toggle("active", role==="owner");
+  el("role-employee").classList.toggle("active", role==="employee");
+  el("designation-field").classList.toggle("hidden", role!=="employee");
+}
+
+el("submit-btn").onclick = async () => {
+  hideError();
+  const email = el("email").value.trim();
+  const password = el("password").value;
+  if (!email || !password) return showError("Email and password are required");
+  try {
+    let res;
+    if (mode==="login"){
+      res = await fetch(`${API}/api/auth/login`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email,password})});
+    } else {
+      const name = el("name").value.trim();
+      if (!name) return showError("Full name is required");
+      res = await fetch(`${API}/api/auth/register`, {method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({name,email,password,role:selectedRole,designation:el("designation").value.trim()})});
+    }
+    const data = await res.json();
+    if (!res.ok) return showError(data.error || "Something went wrong");
+    localStorage.setItem("wp_token", data.token);
+    localStorage.setItem("wp_user", JSON.stringify(data.user));
+    enterDashboard(data.user);
+  } catch(err){ showError("Could not reach the backend. Is it running at " + API + "?"); }
+};
+
+function logout(){ localStorage.clear(); location.reload(); }
+function authHeaders(json=true){
+  const h = {"Authorization":"Bearer "+localStorage.getItem("wp_token")};
+  if (json) h["Content-Type"]="application/json";
+  return h;
+}
+
+// Global safety net: if the backend ever says our token belongs to a user that no
+// longer exists (e.g. the workpulse.db file was deleted/replaced while this browser
+// still had an old login saved), force a clean logout with an explanation instead of
+// leaving the user stuck on a broken page hitting "FOREIGN KEY constraint failed".
+const _origFetch = window.fetch;
+window.fetch = async function(...args){
+  const res = await _origFetch(...args);
+  if (res.status === 401 && String(args[0]).includes(API)) {
+    const clone = res.clone();
+    try {
+      const data = await clone.json();
+      if (data.code === "INVALID_SESSION") {
+        localStorage.clear();
+        alert("Your login is out of date (the server's data was reset). Please sign in again.");
+        location.reload();
+      }
+    } catch(e) { /* not JSON, ignore */ }
+  }
+  return res;
+};
+
+let currentSessionId = null;
+let shareStream = null;
+let captureTimer = null;
+const CAPTURE_INTERVAL_MS = 5 * 60 * 1000;
+
+/* ---------- Idle detection / activity tracking ---------- */
+const IDLE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes of no mouse/keyboard = idle
+let lastActivityAt = Date.now();
+let isAutoPausedForIdle = false;
+let workSeconds = 0, idleSeconds = 0;
+let activityTickTimer = null, heartbeatTimer = null;
+
+function markActivity(){
+  lastActivityAt = Date.now();
+  if (isAutoPausedForIdle && currentSessionId) {
+    isAutoPausedForIdle = false;
+    resumeFromIdle();
+  }
+}
+["mousemove","mousedown","keydown","wheel","touchstart"].forEach(evt =>
+  window.addEventListener(evt, markActivity, {passive:true})
+);
+
+function updateActivityUI(){
+  const total = workSeconds + idleSeconds;
+  const pct = total > 0 ? Math.round((workSeconds/total)*100) : 100;
+  const fmt = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  if (!el("emp-activity-section").classList.contains("hidden")) {
+    el("emp-activity-text").textContent = `Active ${fmt(workSeconds)} · Idle ${fmt(idleSeconds)}`;
+    el("emp-activity-pct").textContent = `${pct}% active`;
+    el("emp-activity-pct").classList.toggle("idle-warning", isAutoPausedForIdle);
+    el("emp-activity-fill").style.width = pct + "%";
+  }
+}
+
+function startActivityTracking(){
+  workSeconds = 0; idleSeconds = 0; isAutoPausedForIdle = false;
+  lastActivityAt = Date.now();
+  el("emp-activity-section").classList.remove("hidden");
+  updateActivityUI();
+
+  if (activityTickTimer) clearInterval(activityTickTimer);
+  activityTickTimer = setInterval(() => {
+    const idleFor = Date.now() - lastActivityAt;
+    if (!isAutoPausedForIdle && idleFor >= IDLE_THRESHOLD_MS) {
+      pauseForIdle();
+    }
+    if (isAutoPausedForIdle) idleSeconds++; else workSeconds++;
+    updateActivityUI();
+  }, 1000);
+
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  sendHeartbeat(); // send one immediately so the owner sees "active" right away, not after a 10s wait
+  heartbeatTimer = setInterval(sendHeartbeat, 10 * 1000); // every 10s — fast enough that closing a tab shows offline within ~25s, slow enough to be cheap
+}
+
+function stopActivityTracking(){
+  if (activityTickTimer) { clearInterval(activityTickTimer); activityTickTimer = null; }
+  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+  el("emp-activity-section").classList.add("hidden");
+}
+
+// Heartbeats (sent every few seconds while checked in) are what tells the owner's
+// dashboard "this employee is online." A real tab close simply stops heartbeats —
+// no special close-detection needed. A refresh causes a brief gap of a few seconds
+// while the page reloads and reconnects, which is well under the offline threshold,
+// so refreshing never wrongly signs someone out. This avoids needing to guess
+// "was that a close or a refresh," which browsers don't reliably expose anyway.
+
+async function sendHeartbeat(){
+  if (!currentSessionId) return;
+  try {
+    await fetch(`${API}/api/sessions/${currentSessionId}/heartbeat`, {
+      method:"POST", headers: authHeaders(),
+      body: JSON.stringify({total_work_seconds: workSeconds, total_idle_seconds: idleSeconds})
+    });
+  } catch(err) { console.log("Heartbeat failed:", err); }
+}
+
+async function pauseForIdle(){
+  if (!currentSessionId || isAutoPausedForIdle) return;
+  isAutoPausedForIdle = true;
+  try {
+    await fetch(`${API}/api/sessions/${currentSessionId}/pause`, {
+      method:"POST", headers: authHeaders(), body: JSON.stringify({reason:"idle"})
+    });
+  } catch(err) { console.log("Auto-pause failed:", err); }
+  el("emp-status-text").textContent = "Paused (idle)";
+}
+
+async function resumeFromIdle(){
+  if (!currentSessionId) return;
+  try {
+    await fetch(`${API}/api/sessions/${currentSessionId}/resume`, {
+      method:"POST", headers: authHeaders()
+    });
+  } catch(err) { console.log("Auto-resume failed:", err); }
+  el("emp-status-text").textContent = "Checked in";
+}
+
+async function enterDashboard(user){
+  el("auth-screen").classList.add("hidden");
+  if (user.role==="owner"){
+    el("owner-app").classList.add("shown");
+    el("owner-name-label").textContent = `${user.name} · owner`;
+    await loadOverview();
+  } else {
+    el("employee-app").classList.add("shown");
+    el("emp-name-label").textContent = user.name;
+    await refreshStatus();
+    await loadHistory();
+    await loadMyScreenshots();
+  }
+}
+
+/* ---------- Owner: page switching ---------- */
+function switchPage(page){
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.toggle("active", n.dataset.page===page));
+  document.querySelectorAll("[id^='page-']").forEach(p => p.classList.add("hidden"));
+  el(`page-${page}`).classList.remove("hidden");
+  if (page==="overview") loadOverview();
+  if (page==="employees") loadEmployees();
+  if (page==="screenshots") loadAllScreenshots();
+}
+
+function activityRingSVG(pct, size=40, stroke=5){
+  const r = (size - stroke) / 2;
+  const c = size / 2;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - pct / 100);
+  return `
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0;">
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#fef3c7" stroke-width="${stroke}"></circle>
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="var(--green)" stroke-width="${stroke}"
+        stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"
+        transform="rotate(-90 ${c} ${c})"></circle>
+      <text x="${c}" y="${c}" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="700" fill="var(--text)">${pct}%</text>
+    </svg>`;
+}
+
+async function loadOverview(){
+  const [statsRes, empRes] = await Promise.all([
+    fetch(`${API}/api/owner/stats`, {headers: authHeaders(false)}),
+    fetch(`${API}/api/owner/employees`, {headers: authHeaders(false)})
+  ]);
+  const stats = await statsRes.json();
+  const employees = await empRes.json();
+  el("stat-active").textContent = stats.active_now ?? 0;
+  el("stat-total").textContent = stats.total_employees ?? 0;
+  el("stat-shots").textContent = stats.screenshots_today ?? 0;
+
+  const fmtMin = s => `${Math.floor((s||0)/60)}m`;
+
+  el("overview-body").innerHTML = employees.map(e => {
+    const work = e.total_work_seconds || 0;
+    const idle = e.total_idle_seconds || 0;
+    const total = work + idle;
+    const pct = total > 0 ? Math.round((work / total) * 100) : 100;
+    const activityCell = e.session_status === "offline"
+      ? "—"
+      : `<div class="activity-ring-wrap">
+           ${activityRingSVG(pct)}
+           <div class="activity-ring-label"><strong>${fmtMin(work)} active</strong>${fmtMin(idle)} idle</div>
+         </div>`;
+    return `
+    <tr>
+      <td>${e.name}</td>
+      <td><span class="badge ${e.session_status}">${e.session_status}</span></td>
+      <td>${e.project || "—"}</td>
+      <td>${e.check_in ? new Date(e.check_in).toLocaleString() : "—"}</td>
+      <td>${activityCell}</td>
+    </tr>`;
+  }).join("") || `<tr class="empty-row"><td colspan="5">No employees yet. They can sign up from the same login page.</td></tr>`;
+}
+
+async function loadEmployees(){
+  const res = await fetch(`${API}/api/owner/employees`, {headers: authHeaders(false)});
+  const rows = await res.json();
+  el("employees-body").innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.name}</td><td>${r.email}</td><td>${r.designation || "—"}</td>
+      <td><span class="badge ${r.session_status}">${r.session_status}</span></td>
+      <td>
+        <span class="link-btn" onclick="viewEmployeeScreenshots(${r.id})">View screenshots</span>
+        &nbsp;·&nbsp;
+        <span class="link-btn" onclick="viewEmployeeHistory(${r.id}, '${r.name.replace(/'/g, "\\'")}')">View history</span>
+        &nbsp;·&nbsp;
+        <button class="delete-link" onclick="deleteEmployee(${r.id}, '${r.name.replace(/'/g, "\\'")}')">Remove</button>
+      </td>
+    </tr>`).join("") || `<tr class="empty-row"><td colspan="5">No employees yet.</td></tr>`;
+}
+
+let currentHistoryModalEmployeeId = null;
+
+async function viewEmployeeHistory(id, name){
+  currentHistoryModalEmployeeId = id;
+  el("history-modal-title").textContent = `${name}'s session history`;
+  el("history-modal-body").innerHTML = `<tr class="empty-row"><td colspan="5">Loading…</td></tr>`;
+  el("history-modal").classList.add("shown");
+  const res = await fetch(`${API}/api/owner/employee/${id}/sessions/daily-summary?days=30`, {headers: authHeaders(false)});
+  const days = await res.json();
+  renderDaySummaryRows(days, "history-modal-body", "toggleHistoryModalDay");
+}
+
+function toggleHistoryModalDay(i){ toggleDayRow("history-modal-body", i); }
+
+function closeHistoryModal(){
+  el("history-modal").classList.remove("shown");
+  currentHistoryModalEmployeeId = null;
+}
+
+async function deleteEmployee(id, name){
+  askConfirm(
+    `Remove ${name}?`,
+    `This permanently deletes their account, all sessions, and all screenshots. This can't be undone.`,
+    async () => {
+      const res = await fetch(`${API}/api/owner/employee/${id}`, {method:"DELETE", headers: authHeaders(false)});
+      if (!res.ok) { const d = await res.json().catch(()=>({})); return alert(d.error || "Could not remove employee"); }
+      await loadEmployees(); await loadOverview();
+    }
+  );
+}
+
+function viewEmployeeScreenshots(id){
+  switchPage("screenshots");
+  setTimeout(() => { el("screenshot-employee-filter").value = id; loadAllScreenshots(); }, 50);
+}
+
+async function loadAllScreenshots(){
+  const empRes = await fetch(`${API}/api/owner/employees`, {headers: authHeaders(false)});
+  const employees = await empRes.json();
+  const select = el("screenshot-employee-filter");
+  const previousSelection = select.value;
+  select.innerHTML = `<option value="">All employees</option>` +
+    employees.map(e => `<option value="${e.id}">${e.name}</option>`).join("");
+  select.value = previousSelection; // keep whatever the owner had picked, if it still exists
+  const selected = select.value;
+  const targets = selected ? [Number(selected)] : employees.map(e => e.id);
+
+  let allShots = [];
+  for (const id of targets) {
+    const res = await fetch(`${API}/api/screenshots/employee/${id}`, {headers: authHeaders(false)});
+    if (res.ok) {
+      const shots = await res.json();
+      allShots = allShots.concat(shots);
+    }
+  }
+  allShots.sort((a,b) => new Date(b.captured_at) - new Date(a.captured_at));
+
+  el("all-screenshots").innerHTML = allShots.map(s => `
+    <div class="thumb" onclick="openLightbox('${API}${s.url}', '${(s.employee_name || '').replace(/'/g,"\\'")} · ${new Date(s.captured_at).toLocaleString()}')">
+      <img src="${API}${s.url}" alt="screenshot">
+      <div class="meta">
+        <span class="who">${s.employee_name || ""}</span>${new Date(s.captured_at).toLocaleString()}
+        <div style="margin-top:6px;"><button class="delete-link" onclick="event.stopPropagation(); deleteScreenshot(${s.id}, true)">Delete</button></div>
+      </div>
+    </div>`).join("") || `<div style="color:var(--muted);">No screenshots yet.</div>`;
+}
+
+async function deleteScreenshot(id, isOwnerView){
+  askConfirm("Delete this screenshot?", "This can't be undone.", async () => {
+    const res = await fetch(`${API}/api/screenshots/${id}`, {method:"DELETE", headers: authHeaders(false)});
+    if (!res.ok) { const d = await res.json().catch(()=>({})); return alert(d.error || "Could not delete screenshot"); }
+    if (isOwnerView) await loadAllScreenshots(); else await loadMyScreenshots();
+  });
+}
+
+/* ---------- Employee: check in/out + auto capture ---------- */
+async function refreshStatus(){
+  const res = await fetch(`${API}/api/sessions/active`, {headers: authHeaders(false)});
+  const data = await res.json();
+  const dot=el("emp-status-dot"), text=el("emp-status-text"), since=el("emp-since");
+  if (data && data.status !== undefined){
+    currentSessionId = data.id;
+    dot.className = "status-dot active";
+    text.textContent = data.status === "paused" ? "Paused" : "Checked in";
+    since.textContent = "Since " + new Date(data.check_in).toLocaleTimeString();
+    el("checkin-btn").classList.add("hidden");
+    el("checkout-btn").classList.remove("hidden");
+    // Resume the activity bar from where the server left off (e.g. after a page reload).
+    // Note: screen sharing itself doesn't survive a reload — the browser will ask you
+    // to re-share next time you interact with capture; this just keeps the timer accurate.
+    if (!activityTickTimer) {
+      workSeconds = data.total_work_seconds || 0;
+      idleSeconds = data.total_idle_seconds || 0;
+      el("emp-activity-section").classList.remove("hidden");
+      updateActivityUI();
+      if (activityTickTimer) clearInterval(activityTickTimer);
+      activityTickTimer = setInterval(() => {
+        const idleFor = Date.now() - lastActivityAt;
+        if (!isAutoPausedForIdle && idleFor >= IDLE_THRESHOLD_MS) pauseForIdle();
+        if (isAutoPausedForIdle) idleSeconds++; else workSeconds++;
+        updateActivityUI();
+      }, 1000);
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      sendHeartbeat(); // immediately, so refreshing the page doesn't cause a brief "offline" flash
+      heartbeatTimer = setInterval(sendHeartbeat, 10 * 1000);
+    }
+  } else {
+    currentSessionId = null;
+    dot.className = "status-dot offline";
+    text.textContent = "Not checked in";
+    since.textContent = "";
+    el("checkin-btn").classList.remove("hidden");
+    el("checkout-btn").classList.add("hidden");
+    stopActivityTracking();
+  }
+}
+
+function doCheckIn(){
+  el("project-input").value = "";
+  el("project-modal").classList.add("shown");
+  setTimeout(() => el("project-input").focus(), 50);
+}
+
+function closeProjectModal(){
+  el("project-modal").classList.remove("shown");
+}
+
+async function confirmProjectAndCheckIn(){
+  const project = el("project-input").value.trim();
+  closeProjectModal();
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    return alert(
+      "Screen sharing isn't available on this page. Browsers only allow it on a " +
+      "secure connection — either https://, or http://localhost.\n\n" +
+      `You're currently on ${location.origin}, which the browser treats as insecure. ` +
+      "Reopen this page using http://localhost:4000 instead (only works if the backend " +
+      "is running on this same computer)."
+    );
+  }
+  try {
+    shareStream = await navigator.mediaDevices.getDisplayMedia({video:true});
+  } catch (err) {
+    return alert("Screen sharing is required to check in, so your owner only ever sees what you've visibly agreed to share. Try again when ready.");
+  }
+  const res = await fetch(`${API}/api/sessions/check-in`, {
+    method:"POST", headers: authHeaders(),
+    body: JSON.stringify({project: project || null})
+  });
+  const data = await res.json();
+  if (!res.ok) { stopSharing(); return alert(data.error || "Could not check in"); }
+  currentSessionId = data.session_id;
+  shareStream.getVideoTracks()[0].onended = () => { if (currentSessionId) doCheckOut(); };
+  startAutoCapture();
+  startActivityTracking();
+  await refreshStatus(); await loadHistory();
+}
+
+async function doCheckOut(){
+  if (!currentSessionId) return;
+  const sid = currentSessionId;
+  stopSharing();
+  stopActivityTracking();
+  const res = await fetch(`${API}/api/sessions/${sid}/check-out`, {
+    method:"POST", headers: authHeaders(),
+    body: JSON.stringify({total_work_seconds: workSeconds, total_idle_seconds: idleSeconds})
+  });
+  const data = await res.json();
+  if (!res.ok) return alert(data.error || "Could not check out");
+  await refreshStatus(); await loadHistory();
+}
+
+function stopSharing(){
+  if (captureTimer) { clearInterval(captureTimer); captureTimer = null; }
+  if (shareStream) { shareStream.getTracks().forEach(t => t.stop()); shareStream = null; }
+}
+function startAutoCapture(){
+  if (captureTimer) clearInterval(captureTimer);
+  // Wait ~1.5s before the very first capture — right after getDisplayMedia() resolves,
+  // the video track often hasn't produced a real frame yet, so grabFrame() can return
+  // a stale/black frame if we grab instantly.
+  setTimeout(() => captureFrame("auto"), 1500);
+  captureTimer = setInterval(() => captureFrame("auto"), CAPTURE_INTERVAL_MS);
+}
+
+// Resolves once the shared track has actually rendered a new video frame, instead of
+// trusting whatever grabFrame() has buffered right now. Falls back to a short wait if
+// the browser doesn't support requestVideoFrameCallback (Edge/Chrome both do).
+function waitForFreshFrame(track, timeoutMs = 800){
+  return new Promise(resolve => {
+    const videoEl = document.createElement("video");
+    videoEl.srcObject = new MediaStream([track]);
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(videoEl); } };
+    const timer = setTimeout(finish, timeoutMs);
+    videoEl.play().then(() => {
+      if (videoEl.requestVideoFrameCallback) {
+        videoEl.requestVideoFrameCallback(() => { clearTimeout(timer); finish(); });
+      } else {
+        // Older browser fallback: just give it a beat to render.
+        setTimeout(() => { clearTimeout(timer); finish(); }, 200);
+      }
+    }).catch(() => { clearTimeout(timer); finish(); });
+  });
+}
+
+function fmtMin(s){ return `${Math.round((s||0)/60)}m`; }
+
+function renderDaySummaryRows(days, tbodyId, expandFnName){
+  if (!days.length) {
+    el(tbodyId).innerHTML = `<tr class="empty-row"><td colspan="5">No sessions yet</td></tr>`;
+    return;
+  }
+  el(tbodyId).innerHTML = days.map((d, i) => `
+    <tr class="day-row" id="${tbodyId}-day-${i}" onclick="${expandFnName}(${i})">
+      <td><span class="expand-arrow">▶</span>${new Date(d.date + "T00:00:00").toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'})}</td>
+      <td>${d.session_count}</td>
+      <td>${fmtMin(d.total_work_seconds)}</td>
+      <td>${fmtMin(d.total_idle_seconds)}</td>
+      <td></td>
+    </tr>
+    <tr class="day-detail-row hidden" id="${tbodyId}-detail-${i}">
+      <td colspan="5">
+        <table>
+          <thead><tr><th>Check in</th><th>Check out</th><th>Status</th><th>Active / Idle</th><th></th></tr></thead>
+          <tbody>
+            ${d.sessions.map(s => `
+              <tr>
+                <td>${new Date(s.check_in).toLocaleTimeString()}</td>
+                <td>${s.check_out ? new Date(s.check_out).toLocaleTimeString() : "—"}</td>
+                <td><span class="badge ${s.status}">${s.status}</span></td>
+                <td>${fmtMin(s.total_work_seconds)} active / ${fmtMin(s.total_idle_seconds)} idle</td>
+                <td>${s.status === "ended" ? `<button class="delete-link" onclick="event.stopPropagation(); deleteSession(${s.id})">Delete</button>` : ""}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </td>
+    </tr>`).join("");
+}
+
+function toggleDayRow(tbodyId, i){
+  const dayRow = el(`${tbodyId}-day-${i}`);
+  const detailRow = el(`${tbodyId}-detail-${i}`);
+  const wasHidden = detailRow.classList.contains("hidden");
+  detailRow.classList.toggle("hidden");
+  dayRow.classList.toggle("expanded", wasHidden);
+}
+
+function toggleHistoryDay(i){ toggleDayRow("history-body", i); }
+
+async function loadHistory(){
+  const res = await fetch(`${API}/api/sessions/daily-summary?days=30`, {headers: authHeaders(false)});
+  const days = await res.json();
+  renderDaySummaryRows(days, "history-body", "toggleHistoryDay");
+}
+
+async function deleteSession(id){
+  askConfirm("Delete this session?", "This also deletes its screenshots. This can't be undone.", async () => {
+    const res = await fetch(`${API}/api/sessions/${id}`, {method:"DELETE", headers: authHeaders(false)});
+    if (!res.ok) { const d = await res.json().catch(()=>({})); return alert(d.error || "Could not delete session"); }
+    if (currentHistoryModalEmployeeId) {
+      // We're inside the owner's "View history" modal — refresh that view, not the employee's own page.
+      const res2 = await fetch(`${API}/api/owner/employee/${currentHistoryModalEmployeeId}/sessions/daily-summary?days=30`, {headers: authHeaders(false)});
+      renderDaySummaryRows(await res2.json(), "history-modal-body", "toggleHistoryModalDay");
+      await loadOverview();
+    } else {
+      await loadHistory(); await loadMyScreenshots();
+    }
+  });
+}
+
+async function captureFrame(captureType){
+  if (!shareStream || !currentSessionId) return;
+  try {
+    const track = shareStream.getVideoTracks()[0];
+    if (!track || track.readyState !== "live") return;
+
+    const videoEl = await waitForFreshFrame(track);
+    const settings = track.getSettings ? track.getSettings() : {};
+    const w = videoEl.videoWidth || settings.width || 1280;
+    const h = videoEl.videoHeight || settings.height || 720;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(videoEl, 0, 0, w, h);
+    videoEl.pause();
+    videoEl.srcObject = null;
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+    if (!blob) return; // canvas produced nothing (e.g. tab lost focus) — skip this round rather than upload a blank
+    const form = new FormData();
+    form.append("screenshot", blob, "screenshot.png");
+    form.append("session_id", currentSessionId);
+    form.append("active_window_title", track.label || "Shared screen");
+    form.append("capture_type", captureType);
+    const res = await fetch(`${API}/api/screenshots/upload`, {
+      method:"POST", headers:{"Authorization":"Bearer "+localStorage.getItem("wp_token")}, body: form
+    });
+    if (res.ok) await loadMyScreenshots();
+  } catch(err){ console.log("Capture skipped:", err); }
+}
+
+async function loadMyScreenshots(){
+  const res = await fetch(`${API}/api/screenshots/mine?limit=12`, {headers: authHeaders(false)});
+  const rows = await res.json();
+  el("my-screenshots").innerHTML = rows.map(r => `
+    <div class="thumb" onclick="openLightbox('${API}${r.url}', '${new Date(r.captured_at).toLocaleString()}')">
+    <img src="${API}${r.url}" alt="screenshot">
+    <div class="meta">
+      ${new Date(r.captured_at).toLocaleString()}
+      <div style="margin-top:6px;"><button class="delete-link" onclick="event.stopPropagation(); deleteScreenshot(${r.id}, false)">Delete</button></div>
+    </div></div>`
+  ).join("") || `<div style="color:var(--muted); font-size:14px;">No screenshots shared yet.</div>`;
+}
+
+function openLightbox(url, caption){
+  el("lightbox-img").src = url;
+  el("lightbox-caption").textContent = caption || "";
+  el("lightbox").classList.add("shown");
+}
+function closeLightbox(){
+  el("lightbox").classList.remove("shown");
+  el("lightbox-img").src = "";
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { closeLightbox(); closeConfirmModal(); closeProjectModal(); closeHistoryModal(); }
+});
+
+/* ---------- Reusable confirm-delete modal ---------- */
+function askConfirm(title, body, onConfirm){
+  el("confirm-title").textContent = title;
+  el("confirm-body").textContent = body;
+  const btn = el("confirm-action-btn");
+  const freshBtn = btn.cloneNode(true); // clear any previous click handler
+  btn.parentNode.replaceChild(freshBtn, btn);
+  freshBtn.onclick = async () => { closeConfirmModal(); await onConfirm(); };
+  el("confirm-modal").classList.add("shown");
+}
+function closeConfirmModal(){
+  el("confirm-modal").classList.remove("shown");
+}
+
+(function init(){
+  render();
+  const token = localStorage.getItem("wp_token");
+  const user = JSON.parse(localStorage.getItem("wp_user") || "null");
+  if (token && user) enterDashboard(user);
+})();
+</script>
+</body>
+</html>
